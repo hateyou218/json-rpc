@@ -14,9 +14,9 @@ const (
 	addr         = "127.0.0.1:1234"
 	alpha        = "abcdefghijklmnopqrstuvwxyz"
 	digit        = "0123456789"
-	key_len      = 3
+	key_len      = 2
 	val_len      = 20
-	worker_count = 5
+	worker_count = 10
 	max_sleep    = 5000
 )
 
