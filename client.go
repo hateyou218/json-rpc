@@ -8,20 +8,54 @@ import (
 	"net"
 	"net/rpc/jsonrpc"
 	"time"
+    "flag"
 )
 
 const (
-	addr         = "127.0.0.1:1234"
 	alpha        = "abcdefghijklmnopqrstuvwxyz"
 	digit        = "0123456789"
-	key_len      = 2
-	val_len      = 20
-	worker_count = 10
-	max_sleep    = 5000
 )
 
 type Args struct {
 	Arg1, Arg2 string
+}
+
+var (
+    addr string
+    port string
+	key_len int
+	val_len int
+    worker_count int
+    max_sleep int
+)
+
+func init() {
+    const (
+        default_addr = "127.0.0.1"
+        default_port = "1234"
+        default_worker_count = 1
+        default_max_sleep = 5000
+        default_key_len = 2
+        default_val_len = 20
+        usage_addr = "Target address"
+        usage_port = "Target port"
+        usage_worker_count = "The number of workers sending requests to the server"
+        usage_max_sleep = "Max possible sleeping time (in ms) between two consecutive requests of a worker"
+        usage_key_len = "Length of each generated key"
+        usage_val_len = "Max possible digits of each generated value"
+    )
+    flag.StringVar(&addr, "addr", default_addr, usage_addr)
+    flag.StringVar(&addr, "a", default_addr, usage_addr)
+    flag.StringVar(&port, "port", default_port, usage_port)
+    flag.StringVar(&port, "p", default_port, usage_port)
+    flag.IntVar(&key_len, "key", default_key_len, usage_key_len)
+    flag.IntVar(&key_len, "k", default_key_len, usage_key_len)
+    flag.IntVar(&val_len, "val", default_val_len, usage_val_len)
+    flag.IntVar(&val_len, "v", default_val_len, usage_val_len)
+    flag.IntVar(&worker_count, "worker", default_worker_count, usage_worker_count)
+    flag.IntVar(&worker_count, "wc", default_worker_count, usage_worker_count)
+    flag.IntVar(&max_sleep, "sleep", default_max_sleep, usage_max_sleep)
+    flag.IntVar(&max_sleep, "ms", default_max_sleep, usage_max_sleep)
 }
 
 func GetKey(n int) string {
@@ -59,7 +93,7 @@ func GetVal(n, m int) string {
 	return string(b)
 }
 
-func SendRequest(addr string) (string, error) {
+func SendRequest(target string) (string, error) {
 	const (
 		NEW = iota
 		SET
@@ -70,7 +104,7 @@ func SendRequest(addr string) (string, error) {
 		DIV
 		CMD_MAX
 	)
-	client, err := net.Dial("tcp", addr)
+	client, err := net.Dial("tcp", target)
 	if err != nil {
 		return "", err
 	}
@@ -191,10 +225,10 @@ func SendRequest(addr string) (string, error) {
 	}
 }
 
-func worker(addr string, interval time.Duration) {
+func worker(target string, interval time.Duration) {
 	log.Printf("Starting worker with sleeping interval = %v\n", interval*time.Millisecond)
 	for {
-		s, err := SendRequest(addr)
+		s, err := SendRequest(target)
 		if err != nil {
 			log.Printf("Error: %v\n", err)
 		} else {
@@ -205,9 +239,11 @@ func worker(addr string, interval time.Duration) {
 }
 
 func main() {
+    flag.Parse()
 	rand.Seed(time.Now().UnixNano())
+    target := addr + ":" + port
 	for i := 1; i < worker_count; i++ {
-		go worker(addr, time.Duration(rand.Int63()%max_sleep+1))
+		go worker(target, time.Duration(rand.Int()%max_sleep+1))
 	}
-	worker(addr, time.Duration(rand.Int63()%max_sleep+1))
+	worker(target, time.Duration(rand.Int()%max_sleep+1))
 }

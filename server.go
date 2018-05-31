@@ -2,17 +2,20 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
-	"io"
+	// "io"
 	"log"
 	"math/big"
 	"net"
-	"net/http"
+	// "net/http"
 	"net/rpc"
 	"net/rpc/jsonrpc"
+	"strings"
 	"time"
 )
 
+/*
 type HttpConn struct {
 	in  io.Reader
 	out io.Writer
@@ -21,6 +24,7 @@ type HttpConn struct {
 func (c *HttpConn) Read(p []byte) (n int, err error)  { return c.in.Read(p) }
 func (c *HttpConn) Write(d []byte) (n int, err error) { return c.out.Write(d) }
 func (c *HttpConn) Close() error                      { return nil }
+*/
 
 type Args struct {
 	Arg1, Arg2 string
@@ -29,6 +33,32 @@ type Args struct {
 type Computation struct {
 	m map[string]*big.Float
 	l chan int
+}
+
+type Ports []string
+
+func (p *Ports) String() string {
+	return fmt.Sprint(*p)
+}
+
+func (p *Ports) Set(values string) error {
+	if len(*p) > 0 {
+		*p = (*p)[:cap(*p)]
+	}
+	for _, v := range strings.Split(values, ",") {
+		*p = append(*p, v)
+	}
+	return nil
+}
+
+const defaultPort = "1234"
+
+var ports Ports
+
+func init() {
+	const usage = "Port(s) the server listens to"
+	flag.Var(&ports, "port", usage)
+	flag.Var(&ports, "p", usage)
 }
 
 func (c *Computation) New(args *Args, reply *string) error {
@@ -219,7 +249,39 @@ func (c *Computation) Div(args *Args, reply *string) error {
 	return nil
 }
 
+func listenTo(port string, server *rpc.Server) {
+	listener, e := net.Listen("tcp", ":"+port)
+	if e != nil {
+		log.Fatal("Listen error:", e)
+	}
+	log.Printf("Server listening to port %s\n", port)
+	/*
+		http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	        log.Print(r)
+			if r.URL.Path == "/" {
+				serverCodec := jsonrpc.NewServerCodec(&HttpConn{in: r.Body, out: w})
+				w.Header().Set("Content-type", "application/json")
+				w.WriteHeader(200)
+				err := server.ServeRequest(serverCodec)
+				if err != nil {
+					log.Printf("Error while serving JSON request: %v", err)
+					http.Error(w, "Error while serving JSON request, details have been logged.", 500)
+					return
+				}
+			}
+		}))
+	*/
+	for {
+		if conn, err := listener.Accept(); err != nil {
+			log.Fatal("Accept error: " + err.Error())
+		} else {
+			go server.ServeCodec(jsonrpc.NewServerCodec(conn))
+		}
+	}
+}
+
 func main() {
+	flag.Parse()
 	c := new(Computation)
 	c.m = make(map[string]*big.Float)
 	c.l = make(chan int, 1)
@@ -227,30 +289,12 @@ func main() {
 	server := rpc.NewServer()
 	server.Register(c)
 	server.HandleHTTP(rpc.DefaultRPCPath, rpc.DefaultDebugPath)
-	listener, e := net.Listen("tcp", ":1234")
-	if e != nil {
-		log.Fatal("Listen error:", e)
-	}
-	log.Printf("Server starting\n")
-	go http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" {
-			serverCodec := jsonrpc.NewServerCodec(&HttpConn{in: r.Body, out: w})
-			w.Header().Set("Content-type", "application/json")
-			w.WriteHeader(200)
-			err := server.ServeRequest(serverCodec)
-			if err != nil {
-				log.Printf("Error while serving JSON request: %v", err)
-				http.Error(w, "Error while serving JSON request, details have been logged.", 500)
-				return
-			}
+	if len(ports) == 0 {
+		listenTo(defaultPort, server)
+	} else {
+		for i := 1; i < len(ports); i++ {
+			go listenTo(ports[i], server)
 		}
-	}))
-	for {
-		if conn, err := listener.Accept(); err != nil {
-			log.Fatal("Accept error: " + err.Error())
-		} else {
-			log.Printf("New connection established\n")
-			go server.ServeCodec(jsonrpc.NewServerCodec(conn))
-		}
+		listenTo(ports[0], server)
 	}
 }
