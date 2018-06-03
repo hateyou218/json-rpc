@@ -2,18 +2,19 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
 	"net"
+    "net/rpc"
 	"net/rpc/jsonrpc"
 	"time"
-    "flag"
 )
 
 const (
-	alpha        = "abcdefghijklmnopqrstuvwxyz"
-	digit        = "0123456789"
+	alpha = "abcdefghijklmnopqrstuvwxyz"
+	digit = "0123456789"
 )
 
 type Args struct {
@@ -21,41 +22,41 @@ type Args struct {
 }
 
 var (
-    addr string
-    port string
-	key_len int
-	val_len int
-    worker_count int
-    max_sleep int
+	addr         string
+	port         string
+	key_len      int
+	val_len      int
+	worker_count int
+	max_sleep    int
 )
 
 func init() {
-    const (
-        default_addr = "127.0.0.1"
-        default_port = "1234"
-        default_worker_count = 1
-        default_max_sleep = 5000
-        default_key_len = 2
-        default_val_len = 20
-        usage_addr = "Target address"
-        usage_port = "Target port"
-        usage_worker_count = "The number of workers sending requests to the server"
-        usage_max_sleep = "Max possible sleeping time (in ms) between two consecutive requests of a worker"
-        usage_key_len = "Length of each generated key"
-        usage_val_len = "Max possible digits of each generated value"
-    )
-    flag.StringVar(&addr, "addr", default_addr, usage_addr)
-    flag.StringVar(&addr, "a", default_addr, usage_addr)
-    flag.StringVar(&port, "port", default_port, usage_port)
-    flag.StringVar(&port, "p", default_port, usage_port)
-    flag.IntVar(&key_len, "key", default_key_len, usage_key_len)
-    flag.IntVar(&key_len, "k", default_key_len, usage_key_len)
-    flag.IntVar(&val_len, "val", default_val_len, usage_val_len)
-    flag.IntVar(&val_len, "v", default_val_len, usage_val_len)
-    flag.IntVar(&worker_count, "worker", default_worker_count, usage_worker_count)
-    flag.IntVar(&worker_count, "wc", default_worker_count, usage_worker_count)
-    flag.IntVar(&max_sleep, "sleep", default_max_sleep, usage_max_sleep)
-    flag.IntVar(&max_sleep, "ms", default_max_sleep, usage_max_sleep)
+	const (
+		default_addr         = "127.0.0.1"
+		default_port         = "1234"
+		default_worker_count = 1
+		default_max_sleep    = 5000
+		default_key_len      = 2
+		default_val_len      = 20
+		usage_addr           = "Target address"
+		usage_port           = "Target port"
+		usage_worker_count   = "The number of workers sending requests to the server"
+		usage_max_sleep      = "Max possible sleeping time (in ms) between two consecutive requests of a worker"
+		usage_key_len        = "Length of each generated key"
+		usage_val_len        = "Max possible digits of each generated value"
+	)
+	flag.StringVar(&addr, "addr", default_addr, usage_addr)
+	flag.StringVar(&addr, "a", default_addr, usage_addr)
+	flag.StringVar(&port, "port", default_port, usage_port)
+	flag.StringVar(&port, "p", default_port, usage_port)
+	flag.IntVar(&key_len, "key", default_key_len, usage_key_len)
+	flag.IntVar(&key_len, "k", default_key_len, usage_key_len)
+	flag.IntVar(&val_len, "val", default_val_len, usage_val_len)
+	flag.IntVar(&val_len, "v", default_val_len, usage_val_len)
+	flag.IntVar(&worker_count, "worker", default_worker_count, usage_worker_count)
+	flag.IntVar(&worker_count, "wc", default_worker_count, usage_worker_count)
+	flag.IntVar(&max_sleep, "sleep", default_max_sleep, usage_max_sleep)
+	flag.IntVar(&max_sleep, "ms", default_max_sleep, usage_max_sleep)
 }
 
 func GetKey(n int) string {
@@ -93,7 +94,7 @@ func GetVal(n, m int) string {
 	return string(b)
 }
 
-func SendRequest(target string) (string, error) {
+func SendRequest(c *rpc.Client) (string, error) {
 	const (
 		NEW = iota
 		SET
@@ -104,10 +105,6 @@ func SendRequest(target string) (string, error) {
 		DIV
 		CMD_MAX
 	)
-	client, err := net.Dial("tcp", target)
-	if err != nil {
-		return "", err
-	}
 	var reply string
 	args := new(Args)
 	cmd := rand.Int() % CMD_MAX
@@ -115,9 +112,7 @@ func SendRequest(target string) (string, error) {
 	case NEW:
 		args.Arg1 = GetKey(rand.Int())
 		args.Arg2 = GetVal(rand.Int()%val_len+1, rand.Int()%val_len)
-		c := jsonrpc.NewClient(client)
-		err = c.Call("Computation.New", args, &reply)
-		client.Close()
+        err := c.Call("Computation.New", args, &reply)
 		if err != nil {
 			return "", err
 		} else {
@@ -126,9 +121,7 @@ func SendRequest(target string) (string, error) {
 	case SET:
 		args.Arg1 = GetKey(rand.Int())
 		args.Arg2 = GetVal(rand.Int()%val_len+1, rand.Int()%val_len)
-		c := jsonrpc.NewClient(client)
-		err = c.Call("Computation.Set", args, &reply)
-		client.Close()
+        err := c.Call("Computation.Set", args, &reply)
 		if err != nil {
 			return "", err
 		} else {
@@ -136,9 +129,7 @@ func SendRequest(target string) (string, error) {
 		}
 	case DEL:
 		args.Arg1 = GetKey(rand.Int())
-		c := jsonrpc.NewClient(client)
-		err = c.Call("Computation.Del", args, &reply)
-		client.Close()
+        err := c.Call("Computation.Del", args, &reply)
 		if err != nil {
 			return "", err
 		} else {
@@ -155,9 +146,7 @@ func SendRequest(target string) (string, error) {
 		} else {
 			args.Arg2 = GetKey(rand.Int())
 		}
-		c := jsonrpc.NewClient(client)
-		err = c.Call("Computation.Add", args, &reply)
-		client.Close()
+        err := c.Call("Computation.Add", args, &reply)
 		if err != nil {
 			return "", err
 		} else {
@@ -174,8 +163,7 @@ func SendRequest(target string) (string, error) {
 		} else {
 			args.Arg2 = GetKey(rand.Int())
 		}
-		c := jsonrpc.NewClient(client)
-		err = c.Call("Computation.Sub", args, &reply)
+        err := c.Call("Computation.Sub", args, &reply)
 		if err != nil {
 			return "", err
 		} else {
@@ -192,9 +180,7 @@ func SendRequest(target string) (string, error) {
 		} else {
 			args.Arg2 = GetKey(rand.Int())
 		}
-		c := jsonrpc.NewClient(client)
-		err = c.Call("Computation.Mul", args, &reply)
-		client.Close()
+        err := c.Call("Computation.Mul", args, &reply)
 		if err != nil {
 			return "", err
 		} else {
@@ -211,24 +197,28 @@ func SendRequest(target string) (string, error) {
 		} else {
 			args.Arg2 = GetKey(rand.Int())
 		}
-		c := jsonrpc.NewClient(client)
-		err = c.Call("Computation.Div", args, &reply)
-		client.Close()
+        err := c.Call("Computation.Div", args, &reply)
 		if err != nil {
 			return "", err
 		} else {
 			return fmt.Sprintf("Result: %s / %s = %s", args.Arg1, args.Arg2, reply), nil
 		}
 	default:
-		client.Close()
 		return "", errors.New("Something went wrong")
 	}
 }
 
 func worker(target string, interval time.Duration) {
 	log.Printf("Starting worker with sleeping interval = %v\n", interval*time.Millisecond)
+	client, err := net.DialTimeout("tcp", target, time.Second)
+	if err != nil {
+		return
+	}
+	defer client.Close()
+	c := jsonrpc.NewClient(client)
+	defer c.Close()
 	for {
-		s, err := SendRequest(target)
+		s, err := SendRequest(c)
 		if err != nil {
 			log.Printf("Error: %v\n", err)
 		} else {
@@ -239,9 +229,9 @@ func worker(target string, interval time.Duration) {
 }
 
 func main() {
-    flag.Parse()
+	flag.Parse()
 	rand.Seed(time.Now().UnixNano())
-    target := addr + ":" + port
+	target := addr + ":" + port
 	for i := 1; i < worker_count; i++ {
 		go worker(target, time.Duration(rand.Int()%max_sleep+1))
 	}
