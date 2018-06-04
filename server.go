@@ -61,7 +61,19 @@ func init() {
 	flag.Var(&ports, "p", usage)
 }
 
-func (c *Computation) New(args *Args, reply *string) error {
+func (c *Computation) New(args *Args, reply *string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				e = errors.New(x)
+			case error:
+				e = x
+			default:
+				e = errors.New("Unknown error")
+			}
+		}
+	}()
 	log.Printf("%v\n", args)
 	_, _, err := big.ParseFloat(args.Arg1, 10, 30, big.ToNearestEven)
 	if err == nil {
@@ -85,7 +97,19 @@ func (c *Computation) New(args *Args, reply *string) error {
 	return nil
 }
 
-func (c *Computation) Set(args *Args, reply *string) error {
+func (c *Computation) Set(args *Args, reply *string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				e = errors.New(x)
+			case error:
+				e = x
+			default:
+				e = errors.New("Unknown error")
+			}
+		}
+	}()
 	log.Printf("%v\n", args)
 	f, _, err := big.ParseFloat(args.Arg2, 10, 30, big.ToNearestEven)
 	if err != nil {
@@ -105,7 +129,19 @@ func (c *Computation) Set(args *Args, reply *string) error {
 	return nil
 }
 
-func (c *Computation) Del(args *Args, reply *string) error {
+func (c *Computation) Del(args *Args, reply *string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				e = errors.New(x)
+			case error:
+				e = x
+			default:
+				e = errors.New("Unknown error")
+			}
+		}
+	}()
 	log.Printf("%v\n", args)
 	select {
 	case <-c.l:
@@ -121,7 +157,19 @@ func (c *Computation) Del(args *Args, reply *string) error {
 	return nil
 }
 
-func (c *Computation) Add(args *Args, reply *string) error {
+func (c *Computation) Add(args *Args, reply *string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				e = errors.New(x)
+			case error:
+				e = x
+			default:
+				e = errors.New("Unknown error")
+			}
+		}
+	}()
 	log.Printf("%v\n", args)
 	f1, _, err1 := big.ParseFloat(args.Arg1, 10, 30, big.ToNearestEven)
 	f2, _, err2 := big.ParseFloat(args.Arg2, 10, 30, big.ToNearestEven)
@@ -153,7 +201,19 @@ func (c *Computation) Add(args *Args, reply *string) error {
 	return nil
 }
 
-func (c *Computation) Sub(args *Args, reply *string) error {
+func (c *Computation) Sub(args *Args, reply *string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				e = errors.New(x)
+			case error:
+				e = x
+			default:
+				e = errors.New("Unknown error")
+			}
+		}
+	}()
 	log.Printf("%v\n", args)
 	f1, _, err1 := big.ParseFloat(args.Arg1, 10, 30, big.ToNearestEven)
 	f2, _, err2 := big.ParseFloat(args.Arg2, 10, 30, big.ToNearestEven)
@@ -185,7 +245,19 @@ func (c *Computation) Sub(args *Args, reply *string) error {
 	return nil
 }
 
-func (c *Computation) Mul(args *Args, reply *string) error {
+func (c *Computation) Mul(args *Args, reply *string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				e = errors.New(x)
+			case error:
+				e = x
+			default:
+				e = errors.New("Unknown error")
+			}
+		}
+	}()
 	log.Printf("%v\n", args)
 	f1, _, err1 := big.ParseFloat(args.Arg1, 10, 30, big.ToNearestEven)
 	f2, _, err2 := big.ParseFloat(args.Arg2, 10, 30, big.ToNearestEven)
@@ -217,7 +289,19 @@ func (c *Computation) Mul(args *Args, reply *string) error {
 	return nil
 }
 
-func (c *Computation) Div(args *Args, reply *string) error {
+func (c *Computation) Div(args *Args, reply *string) (e error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch x := r.(type) {
+			case string:
+				e = errors.New(x)
+			case error:
+				e = x
+			default:
+				e = errors.New("Unknown error")
+			}
+		}
+	}()
 	log.Printf("%v\n", args)
 	f1, _, err1 := big.ParseFloat(args.Arg1, 10, 30, big.ToNearestEven)
 	f2, _, err2 := big.ParseFloat(args.Arg2, 10, 30, big.ToNearestEven)
@@ -256,20 +340,20 @@ func listenTo(port string, server *rpc.Server) {
 	}
 	log.Printf("Server listening to port %s\n", port)
 	/*
-		http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	        log.Print(r)
-			if r.URL.Path == "/" {
-				serverCodec := jsonrpc.NewServerCodec(&HttpConn{in: r.Body, out: w})
-				w.Header().Set("Content-type", "application/json")
-				w.WriteHeader(200)
-				err := server.ServeRequest(serverCodec)
-				if err != nil {
-					log.Printf("Error while serving JSON request: %v", err)
-					http.Error(w, "Error while serving JSON request, details have been logged.", 500)
-					return
+			http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		        log.Print(r)
+				if r.URL.Path == "/" {
+					serverCodec := jsonrpc.NewServerCodec(&HttpConn{in: r.Body, out: w})
+					w.Header().Set("Content-type", "application/json")
+					w.WriteHeader(200)
+					err := server.ServeRequest(serverCodec)
+					if err != nil {
+						log.Printf("Error while serving JSON request: %v", err)
+						http.Error(w, "Error while serving JSON request, details have been logged.", 500)
+						return
+					}
 				}
-			}
-		}))
+			}))
 	*/
 	for {
 		if conn, err := listener.Accept(); err != nil {
